@@ -6,7 +6,6 @@ if [ "$TRAVIS_REPO_SLUG" == "$GIT_PUB_REPO" ]; then
     echo -e "Setting up for publication...\n"
 
     cp -R build/langspec $HOME/langspec
-    mv $HOME/langspec/Overview.html $HOME/langspec/index.html
 
     cd $HOME
     git config --global user.email ${GIT_EMAIL}
@@ -22,6 +21,8 @@ if [ "$TRAVIS_REPO_SLUG" == "$GIT_PUB_REPO" ]; then
         git rm -rf ./langspec/${TRAVIS_BRANCH}/${TIP}
         mkdir -p ./langspec/${TRAVIS_BRANCH}/${TIP}
         cp -Rf $HOME/langspec/* ./langspec/${TRAVIS_BRANCH}/${TIP}
+
+        make
 
         git add -f .
         git commit -m "Successful travis build $TRAVIS_BUILD_NUMBER"

@@ -10,9 +10,10 @@
                 xmlns:n="http://docbook.org/xslt/ns/normalize"
                 xmlns:rng="http://relaxng.org/ns/structure/1.0"
                 xmlns:t="http://docbook.org/xslt/ns/template"
+                xmlns:tmpl="http://docbook.org/xslt/titlepage-templates"
                 xmlns:xlink="http://www.w3.org/1999/xlink"
                 xmlns:xs="http://www.w3.org/2001/XMLSchema"
-                exclude-result-prefixes="f h db doc m ml n rng t xlink xs"
+                exclude-result-prefixes="f h db doc m ml n rng t xlink xs tmpl"
                 version="2.0">
 
 <xsl:import href="docbook.xsl"/>
@@ -21,7 +22,7 @@
 <xsl:include href="rngsyntax.xsl"/>
 <xsl:include href="xprocns.xsl"/>
 
-<xsl:output name="final" method="xhtml" indent="no" doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"/>
+<xsl:output method="xhtml" indent="no" doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"/>
 
 <xsl:output name="library" method="xml" indent="yes"/>
 
@@ -30,6 +31,7 @@
 <xsl:param name="travis-build-number" select="''" as="xs:string"/>
 <xsl:param name="travis-user" select="''" as="xs:string"/>
 <xsl:param name="travis-repo" select="''" as="xs:string"/>
+<xsl:param name="travis-branch" select="''" as="xs:string"/>
 <xsl:param name="auto-diff" select="''" as="xs:string"/>
 
 <xsl:param name="syntax.highlight.map" as="element()*">
@@ -56,19 +58,10 @@
 
 <!-- ============================================================ -->
 
-<xsl:template match="db:note" mode="n:normalized-title">
-  <xsl:param name="title-key"/>
+<xsl:template match="db:note[@role='editorial']/db:title" mode="m:titlepage-mode">
+  <xsl:param name="context" as="element()?" select="()"/>
 
-  <xsl:choose>
-    <xsl:when test="@role = 'editorial'">
-      <xsl:text>Editorial Note</xsl:text>
-    </xsl:when>
-    <xsl:otherwise>
-      <xsl:call-template name="gentext">
-	<xsl:with-param name="key" select="$title-key"/>
-      </xsl:call-template>
-    </xsl:otherwise>
-  </xsl:choose>
+  <h3>Editorial Note</h3>
 </xsl:template>
 
 <xsl:template match="db:termdef/db:firstterm">
@@ -86,7 +79,8 @@
 
 <xsl:template match="db:glossterm">
   <xsl:variable name="term" select="string(.)"/>
-  <xsl:variable name="anchorterm" select="if (@baseform) then @baseform else normalize-space($term)"/>
+  <xsl:variable name="anchorterm"
+                select="if (@baseform) then @baseform else normalize-space($term)"/>
   <xsl:variable name="anchor" select="translate($anchorterm,' ','-')"/>
   <xsl:variable name="termdef" select="key('id',concat('dt-', $anchor))"/>
 
@@ -139,7 +133,8 @@
   </em>
 
   <xsl:if test="ancestor::db:error
-		and ($anchorterm = 'static error' or $anchorterm = 'dynamic error')">
+		and ($anchorterm = 'static error'
+                     or $anchorterm = 'dynamic error')">
     <xsl:variable name="code" select="ancestor::db:error[1]/@code"/>
     <xsl:text>&#160;(</xsl:text>
     <a href="#err.{$code}">
@@ -190,17 +185,23 @@
   <xsl:variable name="code" select="@code"/>
   <xsl:variable name="num" select="count(preceding::db:error[@code=$code])"/>
 
-  <a name="err.inline.{@code}{if ($num&gt;0) then concat('.',$num) else ''}"/>
+  <a id="err.inline.{@code}{if ($num&gt;0) then concat('.',$num) else ''}"/>
   <xsl:apply-templates/>
 </xsl:template>
 
 <xsl:template match="db:impl">
   <xsl:param name="summary" select="0"/>
 
-  <xsl:if test="$summary = 0">
-    <a name="impl-{count(preceding::db:impl)+1}"/>
-  </xsl:if>
-  <xsl:apply-templates/>
+  <xsl:choose>
+    <xsl:when test="$summary = 0">
+      <span id="impl-{count(preceding::db:impl)+1}">
+        <xsl:apply-templates/>
+      </span>
+    </xsl:when>
+    <xsl:otherwise>
+      <xsl:apply-templates/>
+    </xsl:otherwise>
+  </xsl:choose>
 </xsl:template>
 
 <xsl:template match="db:literal[@role='infoset-property']">
@@ -354,14 +355,15 @@
     </script>
   </xsl:if>
 
+  <link rel="stylesheet" type="text/css"
+        href="xproc.css"/>
+
 <!--
   <link rel="stylesheet" type="text/css"
         href="http://www.w3.org/StyleSheets/TR/w3c-tr.css"/>
 -->
   <link rel="stylesheet" type="text/css"
         href="http://www.w3.org/StyleSheets/TR/base.css"/>
-  <link rel="stylesheet" type="text/css"
-        href="xproc.css"/>
   <xsl:choose>
     <xsl:when test="$docbook.css.inline = 0">
       <link rel="stylesheet" type="text/css" href="{$docbook.css}"/>
@@ -372,6 +374,34 @@
       </style>
     </xsl:otherwise>
   </xsl:choose>
+</xsl:template>
+
+<xsl:template name="t:syntax-highlight-head">
+  <link href="prism.css" rel="stylesheet" />
+</xsl:template>
+
+<xsl:template name="t:user-titlepage-templates" as="element(tmpl:templates-list)?">
+  <tmpl:templates-list>
+    <tmpl:templates name="section sect1 sect2 sect3 sect4 sect5
+                          simplesect">
+      <tmpl:titlepage>
+        <db:title/>
+        <db:subtitle/>
+      </tmpl:titlepage>
+    </tmpl:templates>
+
+    <tmpl:templates name="preface chapter appendix partintro">
+      <tmpl:titlepage>
+        <db:title/>
+        <db:subtitle/>
+        <db:authorgroup/>
+        <db:author/>
+        <db:releaseinfo/>
+        <db:abstract/>
+        <db:revhistory/>
+      </tmpl:titlepage>
+    </tmpl:templates>
+  </tmpl:templates-list>
 </xsl:template>
 
 <!-- ============================================================ -->
@@ -523,8 +553,7 @@
 
   <xsl:for-each-group select="$sorted-errors" group-by="@code">
     <xsl:variable name="codes" select="distinct-values(current-group()/@code)"/>
-    <dt>
-      <a name="err.{$codes[1]}"/>
+    <dt id="err.{$codes[1]}">
       <code class="errqname">
 	<xsl:text>err:X</xsl:text>
 	<xsl:value-of select="$codes[1]"/>
@@ -643,7 +672,7 @@
   <div class="diffpara">
     <p>
       <xsl:copy-of select="$htmlp/@*"/>
-      <a name="RF-{generate-id(.)}"/>
+      <a id="RF-{generate-id(.)}"/>
       <xsl:if test="$prev">
 	<a class="difflink" href="#RF-{generate-id($prev)}"
 	   title="Previous change (approximate)">←</a>
@@ -723,6 +752,16 @@
   <span class="type">
     <xsl:value-of select="db:type"/>
   </span>
+</xsl:template>
+
+<xsl:template match="db:parameter">
+  <xsl:call-template name="t:inline-italicmonoseq">
+    <xsl:with-param name="class" select="@class"/>
+    <xsl:with-param name="content">
+      <xsl:text>$</xsl:text>
+      <xsl:call-template name="t:xlink"/>
+    </xsl:with-param>
+  </xsl:call-template>
 </xsl:template>
 
 </xsl:stylesheet>
